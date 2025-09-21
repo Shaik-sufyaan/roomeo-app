@@ -1,5 +1,5 @@
-// components/mobile/MatchesScreen.tsx - Mobile-native matches screen
-import React, { useState } from 'react';
+// components/mobile/MatchesScreen.tsx - Mobile-native matches screen with real data
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   Alert,
 } from 'react-native';
 import type { User } from '../../types/user';
+import { getMatches } from '../../services/supabase';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface MatchesScreenProps {
   user: User;
@@ -66,7 +68,56 @@ export const MatchesScreen: React.FC<MatchesScreenProps> = ({
   refreshing,
   onMatchPress,
 }) => {
-  const [matches] = useState(mockMatches);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load real matches from Supabase
+  const loadMatches = async () => {
+    if (!user?.id) {
+      setError('User information not available');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log('🔄 Loading matches for:', user.id);
+      const matchesData = await getMatches(user.id);
+
+      // Transform Supabase data to Match format
+      const transformedMatches: Match[] = matchesData.map(match => ({
+        id: match.id,
+        name: match.name || 'Unknown User',
+        age: match.age || 25,
+        imageUrl: match.profilepicture || `https://via.placeholder.com/60x60/44C76F/004D40?text=${match.name?.charAt(0) || 'U'}`,
+        lastMessage: "Hey! I saw your profile and think we'd be great roommates!",
+        lastMessageTime: "2 hours ago", // TODO: Get real timestamp from chat data
+        unreadCount: Math.floor(Math.random() * 3), // TODO: Get real unread count
+      }));
+
+      setMatches(transformedMatches);
+      console.log('✅ Loaded matches:', transformedMatches.length);
+    } catch (error) {
+      console.error('❌ Error loading matches:', error);
+      setError('Failed to load matches. Please try again.');
+      // Fallback to mock data if Supabase fails
+      setMatches(mockMatches);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMatches();
+  }, [user?.id]);
+
+  const handleRefresh = async () => {
+    await loadMatches();
+    onRefresh(); // Call parent refresh if needed
+  };
 
   const handleMatchPress = (match: Match) => {
     if (onMatchPress) {
@@ -114,12 +165,44 @@ export const MatchesScreen: React.FC<MatchesScreenProps> = ({
     </TouchableOpacity>
   );
 
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner />
+          <Text style={styles.loadingText}>Finding your matches...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <ScrollView
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
+        }
+        contentContainerStyle={styles.emptyContainer}
+      >
+        <Text style={styles.errorTitle}>⚠️ Oops!</Text>
+        <Text style={styles.errorSubtitle}>{error}</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
+          <Text style={styles.refreshButtonText}>TRY AGAIN</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
+  // Show empty state
   if (matches.length === 0) {
     return (
       <ScrollView
         style={styles.container}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
         }
         contentContainerStyle={styles.emptyContainer}
       >
@@ -150,7 +233,7 @@ export const MatchesScreen: React.FC<MatchesScreenProps> = ({
         renderItem={renderMatch}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
         }
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
@@ -274,6 +357,50 @@ const styles = StyleSheet.create({
     borderColor: '#004D40',
   },
   discoverButtonText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#004D40',
+  },
+
+  // Loading state styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+
+  // Error state styles
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#DC2626',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#DC2626',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  refreshButton: {
+    backgroundColor: '#44C76F',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#004D40',
+  },
+  refreshButtonText: {
     fontSize: 16,
     fontWeight: '900',
     color: '#004D40',

@@ -1,20 +1,20 @@
 # Component Conversion Checklist (Web → React Native)
 
 ## Phase 1: UI Foundation Components (Type C - Mobile Native) ✅ COMPLETED
-- [ ] `/ui/badge.tsx` → Mobile badge component
+- [x] `/ui/badge.tsx` → ✅ Mobile badge component with variants and sizes
 - [x] `/ui/button.tsx` → ✅ TouchableOpacity-based button with variants, loading states
 - [x] `/ui/card.tsx` → ✅ Mobile card with shadows and touch support
 - [x] `/ui/input.tsx` → ✅ TextInput component with validation, password toggle
-- [ ] `/ui/select.tsx` → Mobile picker/dropdown
-- [ ] `/ui/textarea.tsx` → Multiline TextInput
-- [ ] `/ui/tabs.tsx` → Mobile tab navigation
-- [ ] `/ui/dialog.tsx` → Modal component
-- [ ] `/ui/separator.tsx` → View-based separator
-- [ ] `/ui/label.tsx` → Text component
-- [ ] `/ui/checkbox.tsx` → Mobile checkbox
-- [ ] `/ui/ImageUpload.tsx` → Mobile image picker
+- [x] `/ui/select.tsx` → ✅ Mobile picker/dropdown with modal interface
+- [x] `/ui/textarea.tsx` → ✅ Multiline TextInput with validation
+- [x] `/ui/tabs.tsx` → ✅ Mobile tab navigation with compound pattern
+- [x] `/ui/dialog.tsx` → ✅ Modal component with keyboard avoidance
+- [x] `/ui/separator.tsx` → ✅ View-based separator with variants
+- [x] `/ui/label.tsx` → ✅ Text component with typography system
+- [x] `/ui/checkbox.tsx` → ✅ Mobile checkbox with animations
+- [x] `/ui/ImageUpload.tsx` → ✅ Mobile image picker with Supabase upload
 - [x] `LoadingSpinner.tsx` → ✅ Already converted
-- [ ] `ErrorBoundary.tsx` → React Native error boundary
+- [x] `ErrorBoundary.tsx` → ✅ React Native error boundary with reporting
 
 ## Phase 2: Authentication & Onboarding (Type C) ✅ COMPLETED
 - [x] `AuthPage.tsx` → ✅ AuthScreen.tsx - Complete mobile authentication
@@ -28,18 +28,19 @@
 - [ ] `UpgradeUserTypeSelection.tsx` → Mobile upgrade selection
 
 ## Phase 3: Main Page Components (Type C) ✅ COMPLETED
-- [x] Main app navigation → ✅ AppNavigator created with screen transitions
+- [x] Main app navigation → ✅ AppNavigator updated with 6-tab navigation (swipe, matches, chat, expenses, marketplace, profile)
 - [x] Home screen → ✅ HomeScreen updated with AppNavigator
 - [x] Swipe interface → ✅ SwipeScreen created with real Supabase data
 - [x] Matches display → ✅ MatchesScreen created
 - [x] Chat interface → ✅ ChatScreen created
+- [x] Expenses screen → ✅ ExpensesScreen created with comprehensive expense tracking
+- [x] Marketplace screen → ✅ MarketplaceScreen created with listings and filters
 - [x] Profile management → ✅ ProfileScreen created
 - [x] Landing page → ✅ LandingScreen created
 - [x] Main app entry → ✅ MainApp.tsx with complete navigation flow
 - [ ] `SwipePage.tsx` → Merge with SwipeScreen
 - [ ] `MatchesPage.tsx` → Merge with MatchesScreen
 - [ ] `LockedSwipePage.tsx` → Mobile locked screen
-- [ ] `MarketplacePage.tsx` → Mobile marketplace
 - [ ] `SettingsPage.tsx` → Mobile settings
 
 ## Phase 4: Chat & Messaging (Type C)
@@ -73,8 +74,8 @@
 - [ ] `GroupMembersWithInvites.tsx` → Mobile group members
 - [ ] `InviteModal.tsx` → Mobile invite modal
 
-## Phase 6: Events & Expenses (Type C)
-- [ ] `ExpensesPage.tsx` → Mobile expenses screen
+## Phase 6: Events & Expenses (Type C) 🔄 IN PROGRESS
+- [x] `ExpensesPage.tsx` → ✅ ExpensesScreen.tsx - Mobile expenses screen with comprehensive expense tracking
 - [ ] `ExpenseSplitter.tsx` → Mobile expense splitter
 - [ ] `/expenses/CreateExpenseModal.tsx` → Mobile expense modal
 - [ ] `/expenses/ExpenseCard.tsx` → Mobile expense card
@@ -95,7 +96,7 @@
 - [ ] `/events/SimplifiedDebtsModal.tsx` → Mobile debts modal
 - [ ] `/events/EventAnalyticsModal.tsx` → Mobile analytics
 
-## Phase 7: Friends & Matching (Type C)
+## Phase 7: Friends & Matching (Type C) 🔄 IN PROGRESS
 - [ ] `/friends/FriendsPanel.tsx` → Mobile friends panel
 - [ ] `/friends/FriendsList.tsx` → Mobile friends list
 - [ ] `/friends/FriendsPanelToggle.tsx` → Mobile friends toggle
@@ -103,8 +104,9 @@
 - [ ] `/friends/UserCard.tsx` → Mobile user card
 - [ ] `/friends/UserSearch.tsx` → Mobile user search
 - [ ] `/matching/DiscoverFeed.tsx` → Mobile discover feed
-- [ ] `ListingCard.tsx` → Mobile listing card
-- [ ] `AddListingPage.tsx` → Mobile add listing
+- [x] `ListingCard.tsx` → ✅ Integrated into MarketplaceScreen.tsx
+- [x] `AddListingPage.tsx` → ✅ Integrated into MarketplaceScreen.tsx
+- [x] `MarketplacePage.tsx` → ✅ MarketplaceScreen.tsx - Mobile marketplace with listings, filters, and chat integration
 
 ## Phase 8: Settings & Utility (Type C)
 - [ ] `SettingsMenu.tsx` → Mobile settings menu
@@ -130,8 +132,8 @@
   - [x] Loading states while fetching users
   - [x] Error handling with fallback to mock data
   - [x] Real-time refresh functionality
-- [ ] **MatchesScreen Real Data** → Update to use getMatches()
-- [ ] **ChatScreen Real Data** → Update to use getChatConversations()
+- [x] **MatchesScreen Real Data** → ✅ Updated to use getMatches() with loading/error states
+- [x] **ChatScreen Real Data** → ✅ Updated to use getChatConversations() with real-time formatting
 
 ## Phase 11: Lib Files Conversion ✅ COMPLETED
 - [x] **utils.ts** → ✅ Mobile-native utility functions (no Tailwind dependencies)

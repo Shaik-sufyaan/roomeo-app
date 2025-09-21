@@ -10,7 +10,7 @@ import {
 
 const { width } = Dimensions.get('window');
 
-type TabType = 'discover' | 'matches' | 'chat' | 'profile';
+type TabType = 'swipe' | 'matches' | 'chat' | 'expenses' | 'marketplace' | 'profile';
 
 interface Tab {
   key: TabType;
@@ -31,9 +31,11 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
   userType,
 }) => {
   const allTabs: Tab[] = [
-    { key: 'discover', label: 'DISCOVER', shortLabel: 'SWIPE', icon: '🔥' },
+    { key: 'swipe', label: 'DISCOVER', shortLabel: 'SWIPE', icon: '🔥' },
     { key: 'matches', label: 'MATCHES', shortLabel: 'MATCH', icon: '💕' },
     { key: 'chat', label: 'CHAT', shortLabel: 'CHAT', icon: '💬' },
+    { key: 'expenses', label: 'EXPENSES', shortLabel: 'BILLS', icon: '💸' },
+    { key: 'marketplace', label: 'MARKETPLACE', shortLabel: 'SHOP', icon: '🛍️' },
     { key: 'profile', label: 'PROFILE', shortLabel: 'ME', icon: '👤' },
   ];
 
@@ -65,7 +67,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
             ]}
             numberOfLines={1}
           >
-            {width > 350 ? tab.label : tab.shortLabel}
+            {width > 400 ? tab.label : tab.shortLabel}
           </Text>
         </TouchableOpacity>
       ))}
@@ -85,8 +87,8 @@ const styles = StyleSheet.create({
   tab: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
   },
   activeTab: {
     backgroundColor: 'rgba(68, 199, 111, 0.2)',
@@ -94,11 +96,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   icon: {
-    fontSize: 20,
-    marginBottom: 4,
+    fontSize: 16,
+    marginBottom: 2,
   },
   label: {
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: '900',
     color: '#004D40',
     textAlign: 'center',

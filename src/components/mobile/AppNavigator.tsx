@@ -10,6 +10,8 @@ import { SwipeScreen } from './SwipeScreen';
 import { MatchesScreen } from './MatchesScreen';
 import { ChatScreen } from './ChatScreen';
 import { ProfileScreen } from './ProfileScreen';
+import { ExpensesScreen } from './ExpensesScreen';
+import { MarketplaceScreen } from './MarketplaceScreen';
 import { ChatDetailScreen } from './ChatDetailScreen';
 import { ProfileEditScreen } from './ProfileEditScreen';
 import { TabNavigation } from './TabNavigation';
@@ -18,7 +20,7 @@ import type { User } from '../../types/user';
 
 const { width } = Dimensions.get('window');
 
-export type ScreenType = 'swipe' | 'matches' | 'chat' | 'profile' | 'chat-detail' | 'profile-edit';
+export type ScreenType = 'swipe' | 'matches' | 'chat' | 'expenses' | 'marketplace' | 'profile' | 'chat-detail' | 'profile-edit';
 
 interface AppNavigatorProps {
   user: User;
@@ -140,6 +142,22 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
             onRefresh={onRefresh}
             refreshing={refreshing}
             onChatPress={handleChatPress}
+          />
+        );
+      case 'expenses':
+        return (
+          <ExpensesScreen
+            user={user}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+          />
+        );
+      case 'marketplace':
+        return (
+          <MarketplaceScreen
+            user={user}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
           />
         );
       case 'profile':

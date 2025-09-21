@@ -1,5 +1,5 @@
-// components/mobile/ChatScreen.tsx - Mobile-native chat screen
-import React, { useState } from 'react';
+// components/mobile/ChatScreen.tsx - Mobile-native chat screen with real data
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Alert,
 } from 'react-native';
 import type { User } from '../../types/user';
+import { getChatConversations } from '../../services/supabase';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface ChatScreenProps {
   user: User;
@@ -73,7 +75,71 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   refreshing,
   onChatPress,
 }) => {
-  const [chats] = useState(mockChats);
+  const [chats, setChats] = useState<ChatItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load real conversations from Supabase
+  const loadConversations = async () => {
+    if (!user?.id) {
+      setError('User information not available');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log('🔄 Loading conversations for:', user.id);
+      const conversationsData = await getChatConversations(user.id);
+
+      // Transform Supabase data to ChatItem format
+      const transformedChats: ChatItem[] = conversationsData.map(conv => ({
+        id: conv.id,
+        name: conv.partnerName || 'Unknown User',
+        imageUrl: conv.partnerImage || `https://via.placeholder.com/50x50/44C76F/004D40?text=${conv.partnerName?.charAt(0) || 'U'}`,
+        lastMessage: conv.lastMessage || 'No messages yet',
+        lastMessageTime: formatTime(conv.lastMessageTime),
+        unreadCount: conv.unreadCount || 0,
+        isOnline: conv.isOnline || false,
+      }));
+
+      setChats(transformedChats);
+      console.log('✅ Loaded conversations:', transformedChats.length);
+    } catch (error) {
+      console.error('❌ Error loading conversations:', error);
+      setError('Failed to load conversations. Please try again.');
+      // Fallback to mock data if Supabase fails
+      setChats(mockChats);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Simple time formatter
+  const formatTime = (date: Date) => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) return 'just now';
+    if (diffMinutes < 60) return `${diffMinutes} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays === 1) return 'Yesterday';
+    return `${diffDays} days ago`;
+  };
+
+  useEffect(() => {
+    loadConversations();
+  }, [user?.id]);
+
+  const handleRefresh = async () => {
+    await loadConversations();
+    onRefresh(); // Call parent refresh if needed
+  };
 
   const handleChatPress = (chat: ChatItem) => {
     if (onChatPress) {
@@ -133,6 +199,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     </TouchableOpacity>
   );
 
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <LoadingSpinner />
+          <Text style={styles.loadingText}>Loading your conversations...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.errorTitle}>⚠️ Oops!</Text>
+        <Text style={styles.errorSubtitle}>{error}</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={handleRefresh}>
+          <Text style={styles.refreshButtonText}>TRY AGAIN</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Show empty state
   if (chats.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -163,7 +255,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         renderItem={renderChatItem}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={loading} onRefresh={handleRefresh} />
         }
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
@@ -303,6 +395,50 @@ const styles = StyleSheet.create({
     borderColor: '#004D40',
   },
   discoverButtonText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#004D40',
+  },
+
+  // Loading state styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+
+  // Error state styles
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#DC2626',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#DC2626',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  refreshButton: {
+    backgroundColor: '#44C76F',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#004D40',
+  },
+  refreshButtonText: {
     fontSize: 16,
     fontWeight: '900',
     color: '#004D40',
