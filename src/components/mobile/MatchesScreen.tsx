@@ -12,25 +12,17 @@ import {
   Alert,
 } from 'react-native';
 import type { User } from '../../types/user';
-import { getMatches } from '../../services/supabase';
+import { getMutualMatches, type MatchWithUser } from '../../services/matches';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface MatchesScreenProps {
   user: User;
   onRefresh: () => void;
   refreshing: boolean;
-  onMatchPress?: (matchId: string, match: Match) => void;
+  onMatchPress?: (matchId: string, match: MatchWithUser) => void;
 }
 
-interface Match {
-  id: string;
-  name: string;
-  age: number;
-  imageUrl: string;
-  lastMessage?: string;
-  lastMessageTime?: string;
-  unreadCount?: number;
-}
+// Using MatchWithUser from services/matches instead of local interface
 
 // Mock data
 const mockMatches: Match[] = [
@@ -68,11 +60,11 @@ export const MatchesScreen: React.FC<MatchesScreenProps> = ({
   refreshing,
   onMatchPress,
 }) => {
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [matches, setMatches] = useState<MatchWithUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load real matches from Supabase
+  // Load real mutual matches from Supabase
   const loadMatches = async () => {
     if (!user?.id) {
       setError('User information not available');
@@ -84,27 +76,24 @@ export const MatchesScreen: React.FC<MatchesScreenProps> = ({
     setError(null);
 
     try {
-      console.log('🔄 Loading matches for:', user.id);
-      const matchesData = await getMatches(user.id);
+      console.log('🔄 Loading mutual matches for:', user.id);
+      const result = await getMutualMatches(user.id);
 
-      // Transform Supabase data to Match format
-      const transformedMatches: Match[] = matchesData.map(match => ({
-        id: match.id,
-        name: match.name || 'Unknown User',
-        age: match.age || 25,
-        imageUrl: match.profilepicture || `https://via.placeholder.com/60x60/44C76F/004D40?text=${match.name?.charAt(0) || 'U'}`,
-        lastMessage: "Hey! I saw your profile and think we'd be great roommates!",
-        lastMessageTime: "2 hours ago", // TODO: Get real timestamp from chat data
-        unreadCount: Math.floor(Math.random() * 3), // TODO: Get real unread count
-      }));
-
-      setMatches(transformedMatches);
-      console.log('✅ Loaded matches:', transformedMatches.length);
+      if (result.success && result.matches) {
+        setMatches(result.matches);
+        console.log('✅ Loaded mutual matches:', result.matches.length);
+      } else {
+        console.warn('⚠️ No mutual matches found or error:', result.error);
+        setMatches([]);
+        if (result.error) {
+          setError(`Failed to load matches: ${result.error}`);
+        }
+      }
     } catch (error) {
       console.error('❌ Error loading matches:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       setError('Failed to load matches. Please try again.');
-      // Fallback to mock data if Supabase fails
-      setMatches(mockMatches);
+      setMatches([]);
     } finally {
       setLoading(false);
     }
@@ -119,49 +108,57 @@ export const MatchesScreen: React.FC<MatchesScreenProps> = ({
     onRefresh(); // Call parent refresh if needed
   };
 
-  const handleMatchPress = (match: Match) => {
+  const handleMatchPress = (match: MatchWithUser) => {
     if (onMatchPress) {
       onMatchPress(match.id, match);
     } else {
       Alert.alert(
         'Start Chat',
-        `Start a conversation with ${match.name}?`,
+        `Start a conversation with ${match.matched_user.name}?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Chat', onPress: () => console.log(`Starting chat with ${match.name}`) },
+          { text: 'Chat', onPress: () => console.log(`Starting chat with ${match.matched_user.name}`) },
         ]
       );
     }
   };
 
-  const renderMatch = ({ item }: { item: Match }) => (
+  const renderMatch = ({ item }: { item: MatchWithUser }) => (
     <TouchableOpacity
       style={styles.matchCard}
       onPress={() => handleMatchPress(item)}
       activeOpacity={0.7}
     >
-      <Image source={{ uri: item.imageUrl }} style={styles.matchImage} />
+      <Image
+        source={{
+          uri: item.matched_user.profilePicture ||
+               `https://via.placeholder.com/60x60/44C76F/004D40?text=${item.matched_user.name?.charAt(0) || 'U'}`
+        }}
+        style={styles.matchImage}
+      />
 
       <View style={styles.matchInfo}>
         <View style={styles.matchHeader}>
-          <Text style={styles.matchName}>{item.name}, {item.age}</Text>
-          {item.lastMessageTime && (
-            <Text style={styles.matchTime}>{item.lastMessageTime}</Text>
-          )}
+          <Text style={styles.matchName}>
+            {item.matched_user.name}, {item.matched_user.age || 25}
+          </Text>
+          <Text style={styles.matchTime}>
+            {new Date(item.created_at).toLocaleDateString()}
+          </Text>
         </View>
 
-        {item.lastMessage && (
-          <Text style={styles.lastMessage} numberOfLines={1}>
-            {item.lastMessage}
-          </Text>
-        )}
+        <Text style={styles.lastMessage} numberOfLines={1}>
+          {item.matched_user.bio || "Hey! I saw your profile and think we'd be great roommates!"}
+        </Text>
+
+        <Text style={styles.matchLocation} numberOfLines={1}>
+          📍 {item.matched_user.location || 'Location not specified'}
+        </Text>
       </View>
 
-      {item.unreadCount && item.unreadCount > 0 && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadText}>{item.unreadCount}</Text>
-        </View>
-      )}
+      <View style={styles.matchBadge}>
+        <Text style={styles.matchBadgeText}>🎉 Match!</Text>
+      </View>
     </TouchableOpacity>
   );
 
@@ -327,6 +324,25 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: '900',
+  },
+  matchLocation: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  matchBadge: {
+    backgroundColor: '#44C76F',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#004D40',
+  },
+  matchBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#004D40',
   },
   emptyContainer: {
     flex: 1,

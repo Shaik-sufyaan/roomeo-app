@@ -15,7 +15,9 @@ import {
   Dimensions,
 } from 'react-native';
 import type { User } from '../../types/user';
+import type { Listing, ListingFilters, ListingSortOptions } from '../../types/listing';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { getListings, createListing } from '../../services/marketplace';
 
 const { width } = Dimensions.get('window');
 
@@ -26,31 +28,7 @@ interface MarketplaceScreenProps {
   onStartChat?: (sellerId: string, listingId: string) => void;
 }
 
-interface Listing {
-  id: string;
-  title: string;
-  price: number;
-  description: string;
-  imageUrl: string;
-  location: string;
-  category: string;
-  condition: string;
-  sellerId: string;
-  sellerName: string;
-  sellerImage: string;
-  status: 'active' | 'sold' | 'draft';
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface ListingFilters {
-  minPrice?: number;
-  maxPrice?: number;
-  location?: string;
-  category?: string;
-  condition?: string;
-  search?: string;
-}
+// Remove local interfaces since we're importing from types
 
 // Mock data
 const mockListings: Listing[] = [
@@ -152,56 +130,60 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({
   const [filters, setFilters] = useState<ListingFilters>({});
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  // Load listings (mock implementation)
+  // Load listings from Supabase
   const loadListings = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Prepare filters for Supabase
+      const supabaseFilters: ListingFilters = {
+        ...filters,
+        search: searchQuery.trim() || undefined,
+      };
 
-      let filteredListings = [...mockListings];
+      // Prepare sort options
+      const sortOptions: ListingSortOptions = {
+        field: 'created_at',
+        direction: 'desc'
+      };
 
-      // Apply search filter
-      if (searchQuery.trim()) {
-        filteredListings = filteredListings.filter(listing =>
-          listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          listing.description.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      }
+      console.log('🔄 Loading listings from Supabase with filters:', supabaseFilters);
+      const data = await getListings(supabaseFilters, sortOptions);
 
-      // Apply category filter
+      // Apply category filter locally since it's not in the main filter
+      let filteredData = data;
       if (selectedCategory !== 'all') {
-        filteredListings = filteredListings.filter(listing =>
-          listing.category === selectedCategory
-        );
+        // For now, map categories to listing properties or use description/title search
+        filteredData = data.filter(listing => {
+          const titleLower = listing.title.toLowerCase();
+          const descLower = listing.description.toLowerCase();
+
+          switch (selectedCategory) {
+            case 'furniture':
+              return titleLower.includes('chair') || titleLower.includes('desk') || titleLower.includes('table') || titleLower.includes('furniture');
+            case 'appliances':
+              return titleLower.includes('fridge') || titleLower.includes('microwave') || titleLower.includes('washer') || descLower.includes('appliance');
+            case 'books':
+              return titleLower.includes('book') || titleLower.includes('textbook') || descLower.includes('book');
+            case 'electronics':
+              return titleLower.includes('phone') || titleLower.includes('laptop') || titleLower.includes('computer') || descLower.includes('electronic');
+            case 'clothing':
+              return titleLower.includes('shirt') || titleLower.includes('jacket') || titleLower.includes('clothes') || descLower.includes('clothing');
+            default:
+              return true;
+          }
+        });
       }
 
-      // Apply price filters
-      if (filters.minPrice) {
-        filteredListings = filteredListings.filter(listing =>
-          listing.price >= filters.minPrice!
-        );
-      }
-      if (filters.maxPrice) {
-        filteredListings = filteredListings.filter(listing =>
-          listing.price <= filters.maxPrice!
-        );
-      }
-
-      // Apply location filter
-      if (filters.location) {
-        filteredListings = filteredListings.filter(listing =>
-          listing.location.toLowerCase().includes(filters.location!.toLowerCase())
-        );
-      }
-
-      setListings(filteredListings);
-      console.log('✅ Loaded listings:', filteredListings.length);
+      setListings(filteredData);
+      console.log('✅ Loaded listings:', filteredData.length);
     } catch (error) {
       console.error('❌ Error loading listings:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       setError('Failed to load listings. Please try again.');
+      // Show empty array instead of mock data
+      setListings([]);
     } finally {
       setLoading(false);
     }
@@ -238,7 +220,14 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({
 
   const renderListingCard = ({ item }: { item: Listing }) => (
     <TouchableOpacity style={styles.listingCard} activeOpacity={0.7}>
-      <Image source={{ uri: item.imageUrl }} style={styles.listingImage} />
+      <Image
+        source={{
+          uri: item.images && item.images.length > 0
+            ? item.images[0]
+            : 'https://via.placeholder.com/300x200/44C76F/004D40?text=' + encodeURIComponent(item.title.substring(0, 10))
+        }}
+        style={styles.listingImage}
+      />
 
       <View style={styles.listingContent}>
         <View style={styles.listingHeader}>
@@ -256,17 +245,23 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({
           </View>
           <View style={styles.conditionBadge}>
             <Text style={styles.conditionText}>
-              {conditions.find(c => c.id === item.condition)?.emoji} {item.condition}
+              ✨ {item.status}
             </Text>
           </View>
         </View>
 
         <View style={styles.sellerInfo}>
-          <Image source={{ uri: item.sellerImage }} style={styles.sellerImage} />
-          <Text style={styles.sellerName}>{item.sellerName}</Text>
+          <Image
+            source={{
+              uri: item.seller?.profilePicture ||
+                   `https://via.placeholder.com/50x50/44C76F/004D40?text=${item.seller?.name?.charAt(0) || 'U'}`
+            }}
+            style={styles.sellerImage}
+          />
+          <Text style={styles.sellerName}>{item.seller?.name || 'Unknown Seller'}</Text>
           <TouchableOpacity
             style={styles.chatButton}
-            onPress={() => handleChatWithSeller(item.sellerId, item.id)}
+            onPress={() => handleChatWithSeller(item.created_by, item.id)}
           >
             <Text style={styles.chatButtonText}>💬 Chat</Text>
           </TouchableOpacity>

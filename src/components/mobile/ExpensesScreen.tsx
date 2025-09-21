@@ -13,8 +13,10 @@ import {
   Dimensions,
 } from 'react-native';
 import type { User } from '../../types/user';
+import type { ExpenseDashboardData, ExpenseSummary, CreateExpenseGroupRequest } from '../../types/expenses';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { getExpenseDashboardData, createExpenseGroup } from '../../services/expenses';
 
 const { width } = Dimensions.get('window');
 
@@ -135,26 +137,60 @@ export const ExpensesScreen: React.FC<ExpensesScreenProps> = ({
   const totalOwedToYou = expenses.reduce((sum, expense) => sum + expense.owedToYou, 0);
   const netBalance = totalOwedToYou - totalOwed;
 
-  // Load expenses and settlements
+  // Load expenses and settlements from Supabase
   const loadExpenses = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // TODO: Replace with actual Supabase calls
-      console.log('🔄 Loading expenses for:', user.id);
+      console.log('🔄 Loading expense dashboard for:', user.id);
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Get real expense data from Supabase
+      const dashboardData = await getExpenseDashboardData(user.id);
 
-      setExpenses(mockExpenses);
-      setSettlements(mockSettlements);
-      console.log('✅ Loaded expenses:', mockExpenses.length);
+      // Transform ExpenseSummary[] to Expense[] format
+      const transformedExpenses: Expense[] = dashboardData.active_expenses.map(summary => ({
+        id: summary.group_id,
+        title: summary.group_name,
+        amount: summary.total_amount,
+        category: 'other' as const, // Map to categories as needed
+        date: new Date(summary.created_at),
+        paidBy: summary.created_by_id,
+        paidByName: summary.created_by_name,
+        participants: summary.participants?.map(p => p.user_id) || [],
+        participantNames: summary.participants?.map(p => p.name) || [],
+        splitType: 'equal' as const, // Default to equal split
+        isSettled: summary.is_settled,
+        yourShare: summary.amount_owed,
+        youOwe: Math.max(0, summary.amount_owed - summary.amount_paid),
+        owedToYou: summary.created_by_id === user.id ? summary.total_amount - summary.amount_paid : 0,
+        description: summary.group_description,
+      }));
+
+      // Transform PendingSettlement[] to Settlement[] format
+      const transformedSettlements: Settlement[] = dashboardData.pending_settlements.map(pending => ({
+        id: pending.settlement_id,
+        fromUser: 'unknown', // We don't have this in the current structure
+        fromUserName: pending.payer_name,
+        toUser: pending.receiver_id,
+        toUserName: 'You', // Assuming current user is receiver
+        amount: pending.amount,
+        method: pending.payment_method,
+        status: pending.status as 'pending',
+        date: new Date(pending.created_at),
+        description: `Payment for ${pending.group_name}`,
+      }));
+
+      setExpenses(transformedExpenses);
+      setSettlements(transformedSettlements);
+      console.log('✅ Loaded expenses from Supabase:', transformedExpenses.length);
     } catch (error) {
       console.error('❌ Error loading expenses:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       setError('Failed to load expenses. Please try again.');
-      setExpenses(mockExpenses);
-      setSettlements(mockSettlements);
+      // Show empty arrays instead of mock data
+      setExpenses([]);
+      setSettlements([]);
     } finally {
       setLoading(false);
     }

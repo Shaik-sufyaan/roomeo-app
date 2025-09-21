@@ -11,7 +11,8 @@ import {
   Alert,
 } from 'react-native';
 import type { User } from '../../types/user';
-import { getChatConversations } from '../../services/supabase';
+import type { Chat } from '../../types/chat';
+import { getUserChats } from '../../services/chat';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface ChatScreenProps {
@@ -21,15 +22,7 @@ interface ChatScreenProps {
   onChatPress?: (chatId: string, chatPartner: any) => void;
 }
 
-interface ChatItem {
-  id: string;
-  name: string;
-  imageUrl: string;
-  lastMessage: string;
-  lastMessageTime: string;
-  unreadCount?: number;
-  isOnline: boolean;
-}
+// Using Chat from types/chat instead of local interface
 
 // Mock chat data
 const mockChats: ChatItem[] = [
@@ -75,11 +68,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   refreshing,
   onChatPress,
 }) => {
-  const [chats, setChats] = useState<ChatItem[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load real conversations from Supabase
+  // Load real chats from Supabase
   const loadConversations = async () => {
     if (!user?.id) {
       setError('User information not available');
@@ -91,27 +84,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setError(null);
 
     try {
-      console.log('🔄 Loading conversations for:', user.id);
-      const conversationsData = await getChatConversations(user.id);
+      console.log('🔄 Loading chats for:', user.id);
+      const result = await getUserChats(user.id);
 
-      // Transform Supabase data to ChatItem format
-      const transformedChats: ChatItem[] = conversationsData.map(conv => ({
-        id: conv.id,
-        name: conv.partnerName || 'Unknown User',
-        imageUrl: conv.partnerImage || `https://via.placeholder.com/50x50/44C76F/004D40?text=${conv.partnerName?.charAt(0) || 'U'}`,
-        lastMessage: conv.lastMessage || 'No messages yet',
-        lastMessageTime: formatTime(conv.lastMessageTime),
-        unreadCount: conv.unreadCount || 0,
-        isOnline: conv.isOnline || false,
-      }));
-
-      setChats(transformedChats);
-      console.log('✅ Loaded conversations:', transformedChats.length);
+      if (result.success && result.chats) {
+        setChats(result.chats);
+        console.log('✅ Loaded chats:', result.chats.length);
+      } else {
+        console.warn('⚠️ No chats found or error:', result.error);
+        setChats([]);
+        if (result.error) {
+          setError(`Failed to load chats: ${result.error}`);
+        }
+      }
     } catch (error) {
-      console.error('❌ Error loading conversations:', error);
-      setError('Failed to load conversations. Please try again.');
-      // Fallback to mock data if Supabase fails
-      setChats(mockChats);
+      console.error('❌ Error loading chats:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      setError('Failed to load chats. Please try again.');
+      setChats([]);
     } finally {
       setLoading(false);
     }
@@ -141,61 +131,63 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     onRefresh(); // Call parent refresh if needed
   };
 
-  const handleChatPress = (chat: ChatItem) => {
+  const handleChatPress = (chat: Chat) => {
     if (onChatPress) {
       const chatPartner = {
         id: chat.id,
-        name: chat.name,
-        imageUrl: chat.imageUrl,
-        isOnline: chat.isOnline,
+        name: chat.other_user_name,
+        imageUrl: chat.other_user_avatar,
+        isOnline: false, // TODO: Add online status to Chat type
       };
       onChatPress(chat.id, chatPartner);
     } else {
       Alert.alert(
         'Open Chat',
-        `Open conversation with ${chat.name}?`,
+        `Open conversation with ${chat.other_user_name}?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Open', onPress: () => console.log(`Opening chat with ${chat.name}`) },
+          { text: 'Open', onPress: () => console.log(`Opening chat with ${chat.other_user_name}`) },
         ]
       );
     }
   };
 
-  const renderChatItem = ({ item }: { item: ChatItem }) => (
+  const renderChatItem = ({ item }: { item: Chat }) => (
     <TouchableOpacity
       style={styles.chatItem}
       onPress={() => handleChatPress(item)}
       activeOpacity={0.7}
     >
       <View style={styles.avatarContainer}>
-        <Image source={{ uri: item.imageUrl }} style={styles.avatar} />
-        {item.isOnline && <View style={styles.onlineIndicator} />}
+        <Image
+          source={{
+            uri: item.other_user_avatar ||
+                 `https://via.placeholder.com/50x50/44C76F/004D40?text=${item.other_user_name?.charAt(0) || 'U'}`
+          }}
+          style={styles.avatar}
+        />
+        {/* TODO: Add online status when available */}
       </View>
 
       <View style={styles.chatContent}>
         <View style={styles.chatHeader}>
-          <Text style={styles.chatName}>{item.name}</Text>
-          <Text style={styles.chatTime}>{item.lastMessageTime}</Text>
+          <Text style={styles.chatName}>{item.other_user_name}</Text>
+          <Text style={styles.chatTime}>
+            {formatTime(new Date(item.updated_at))}
+          </Text>
         </View>
         <Text
           style={[
             styles.lastMessage,
-            item.unreadCount && styles.unreadMessage
+            // TODO: Add unread message styling when unread count is available
           ]}
           numberOfLines={1}
         >
-          {item.lastMessage}
+          {item.last_message || 'No messages yet'}
         </Text>
       </View>
 
-      {item.unreadCount && item.unreadCount > 0 && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadCount}>
-            {item.unreadCount > 99 ? '99+' : item.unreadCount}
-          </Text>
-        </View>
-      )}
+      {/* TODO: Add unread badge when unread count is available in Chat type */}
     </TouchableOpacity>
   );
 

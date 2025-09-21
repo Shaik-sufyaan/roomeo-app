@@ -16,6 +16,7 @@ import { ChatDetailScreen } from './ChatDetailScreen';
 import { ProfileEditScreen } from './ProfileEditScreen';
 import { TabNavigation } from './TabNavigation';
 import { ProfileHeader } from './ProfileHeader';
+import { createOrGetChat } from '../../services/chat';
 import type { User } from '../../types/user';
 
 const { width } = Dimensions.get('window');
@@ -96,15 +97,41 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({
     navigateToScreen('chat-detail', { chatId, chatPartner });
   };
 
-  const handleMatchPress = (matchId: string, match: any) => {
-    // Navigate to chat detail with match data
-    const chatPartner = {
-      id: match.id,
-      name: match.name,
-      imageUrl: match.imageUrl,
-      isOnline: Math.random() > 0.5, // Mock online status
-    };
-    navigateToScreen('chat-detail', { chatId: `match-${matchId}`, chatPartner });
+  const handleMatchPress = async (matchId: string, match: any) => {
+    try {
+      // Get or create a chat between current user and matched user
+      const targetUserId = match.matched_user?.id || match.target_user_id;
+
+      if (!targetUserId) {
+        console.error('No target user ID found in match');
+        return;
+      }
+
+      console.log('🔄 Creating or getting chat between', user.id, 'and', targetUserId);
+      const result = await createOrGetChat(user.id, targetUserId);
+
+      if (result.success && result.chat) {
+        const chatPartner = {
+          id: targetUserId,
+          name: match.matched_user?.name || match.name,
+          imageUrl: match.matched_user?.profilePicture || match.imageUrl,
+          isOnline: false, // TODO: Add real online status
+        };
+        navigateToScreen('chat-detail', { chatId: result.chat.id, chatPartner });
+      } else {
+        console.error('Failed to create/get chat:', result.error);
+        // Fallback to previous behavior
+        const chatPartner = {
+          id: targetUserId,
+          name: match.matched_user?.name || match.name,
+          imageUrl: match.matched_user?.profilePicture || match.imageUrl,
+          isOnline: false,
+        };
+        navigateToScreen('chat-detail', { chatId: `match-${matchId}`, chatPartner });
+      }
+    } catch (error) {
+      console.error('Error handling match press:', error);
+    }
   };
 
   const handleEditProfile = () => {
