@@ -43,15 +43,15 @@
 - [ ] `LockedSwipePage.tsx` → Mobile locked screen
 - [ ] `SettingsPage.tsx` → Mobile settings
 
-## Phase 4: Chat & Messaging (Type C)
+## Phase 4: Chat & Messaging (Type C) ✅ CORE COMPONENTS COMPLETED
 - [x] Chat detail screen → ✅ ChatDetailScreen created
+- [x] `/chat/ChatInput.tsx` → ✅ Mobile chat input with typing detection & image upload
+- [x] `/chat/EnhancedMessageInput.tsx` → ✅ Enhanced input with mentions, file upload & quick actions
+- [x] `/chat/MessageBubble.tsx` → ✅ Mobile message bubble with status indicators & image support
+- [x] `/chat/TypingIndicator.tsx` → ✅ Mobile typing indicator with smooth animations
 - [ ] `ChatPage.tsx` → Merge with ChatScreen
 - [ ] `EnhancedChatPage.tsx` → Enhanced mobile chat
 - [ ] `RoommateChatPage.tsx` → Roommate specific chat
-- [ ] `/chat/ChatInput.tsx` → Mobile chat input
-- [ ] `/chat/EnhancedMessageInput.tsx` → Enhanced input
-- [ ] `/chat/MessageBubble.tsx` → Mobile message bubble
-- [ ] `/chat/TypingIndicator.tsx` → Mobile typing indicator
 - [ ] `/chat/MessageReactions.tsx` → Mobile reactions
 - [ ] `/chat/ReactionPicker.tsx` → Mobile reaction picker
 - [ ] `/chat/PinnedMessages.tsx` → Mobile pinned messages
