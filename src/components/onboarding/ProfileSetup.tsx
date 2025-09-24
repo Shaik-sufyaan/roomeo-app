@@ -1,6 +1,6 @@
 /**
  * ProfileSetup - React Native profile setup component
- * Multi-step onboarding flow for user profile creation
+ * Complete multi-step onboarding flow with all original features
  */
 
 import React, { useState, useEffect } from 'react'
@@ -35,10 +35,11 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
   const [profileImageUri, setProfileImageUri] = useState<string | null>(null)
   const [selectedAvatar, setSelectedAvatar] = useState<string>("")
 
-  // Form data
+  // Form data - ALL fields from original
   const [age, setAge] = useState("")
   const [bio, setBio] = useState("")
   const [location, setLocation] = useState("")
+  const [area, setArea] = useState("")
   const [budget, setBudget] = useState("")
   const [universityAffiliation, setUniversityAffiliation] = useState("")
   const [professionalStatus, setProfessionalStatus] = useState<"student" | "employed" | "unemployed" | "">("")
@@ -48,9 +49,12 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
     vegetarian: false,
     pets: false,
   })
+  const [roomPhotos, setRoomPhotos] = useState<string[]>([])
+  const [roomPhotosSkipped, setRoomPhotosSkipped] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const avatars = getAvailableAvatars()
 
@@ -100,6 +104,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
 
     setLoading(true)
     setError(null)
+    setUploadError(null)
 
     try {
       let photoUrl = ""
@@ -117,7 +122,10 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           console.log("✅ Image upload successful:", photoUrl)
         } else {
           console.error("❌ Upload failed:", uploadResult.error)
-          Alert.alert('Warning', 'Image upload failed, continuing without profile picture')
+          setUploadError(uploadResult.error || "Upload failed")
+
+          // Continue without the image rather than failing completely
+          console.log("⚠️ Continuing profile setup without uploaded image")
         }
       }
 
@@ -125,6 +133,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
         age: Number(age) || 0,
         bio,
         location,
+        area,
         budget: budget ? Number(budget) : 0,
         universityaffiliation: universityAffiliation,
         professionalstatus: professionalStatus,
@@ -133,7 +142,15 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
         usertype: userType,
         name: user.name || "",
         email: user.email || "",
+        // Track profile completion status for quick_access users
+        profile_completion_status: userType === "quick_access" ? {
+          budget_skipped: !budget || budget === ""
+        } : {},
       }
+
+      console.log("🔍 Profile picture being saved:", photoUrl)
+      console.log("🔍 Selected avatar:", selectedAvatar)
+      console.log("🔍 Profile image URI:", profileImageUri ? 'selected' : 'none')
 
       console.log("🔄 Saving profile data...")
       const success = await updateUserProfile(user.id, profileData)
@@ -144,13 +161,18 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
 
       console.log("✅ Profile setup completed successfully")
 
-      // Refresh user data
-      await refreshUser?.()
+      // Refresh user data to ensure the app recognizes profile completion
+      console.log("🔄 Refreshing user data...")
+      const refreshSuccess = await refreshUser?.()
+      if (!refreshSuccess) {
+        console.warn("⚠️ User data refresh failed, but profile was saved")
+      }
+
       onComplete()
 
     } catch (error) {
       console.error("❌ Profile setup failed:", error)
-      setError("Failed to save profile. Please try again.")
+      setError(error instanceof Error ? error.message : "Profile setup failed")
     } finally {
       setLoading(false)
     }
@@ -166,7 +188,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
       marginBottom: 24,
       gap: 8
     }}>
-      {[1, 2, 3, 4].map((stepNum) => (
+      {[1, 2, 3, 4, 5].map((stepNum) => (
         <View
           key={stepNum}
           style={{
@@ -182,6 +204,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
     </View>
   )
 
+  // Step 1: Basic Info (Photo + Age + Location + Area)
   const renderStep1 = () => (
     <View style={{ flex: 1 }}>
       <Text style={{
@@ -314,9 +337,36 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           }}
         />
       </View>
+
+      {/* Area Input */}
+      <View style={{ marginBottom: 20 }}>
+        <Text style={{
+          fontSize: 16,
+          fontWeight: 'bold',
+          color: '#004D40',
+          marginBottom: 8
+        }}>
+          Area/Neighborhood
+        </Text>
+        <TextInput
+          value={area}
+          onChangeText={setArea}
+          placeholder="Downtown, University District, etc."
+          style={{
+            borderWidth: 2,
+            borderColor: '#004D40',
+            borderRadius: 8,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            fontSize: 16,
+            backgroundColor: '#ffffff'
+          }}
+        />
+      </View>
     </View>
   )
 
+  // Step 2: About You (Bio + Professional + University + Budget)
   const renderStep2 = () => (
     <View style={{ flex: 1 }}>
       <Text style={{
@@ -399,31 +449,33 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
         </View>
       </View>
 
-      {/* University */}
-      <View style={{ marginBottom: 20 }}>
-        <Text style={{
-          fontSize: 16,
-          fontWeight: 'bold',
-          color: '#004D40',
-          marginBottom: 8
-        }}>
-          University/School (if applicable)
-        </Text>
-        <TextInput
-          value={universityAffiliation}
-          onChangeText={setUniversityAffiliation}
-          placeholder="Enter your university"
-          style={{
-            borderWidth: 2,
-            borderColor: '#004D40',
-            borderRadius: 8,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
+      {/* University - Only show for students */}
+      {professionalStatus === "student" && (
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{
             fontSize: 16,
-            backgroundColor: '#ffffff'
-          }}
-        />
-      </View>
+            fontWeight: 'bold',
+            color: '#004D40',
+            marginBottom: 8
+          }}>
+            University/School
+          </Text>
+          <TextInput
+            value={universityAffiliation}
+            onChangeText={setUniversityAffiliation}
+            placeholder="University of Washington, UW, etc."
+            style={{
+              borderWidth: 2,
+              borderColor: '#004D40',
+              borderRadius: 8,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              fontSize: 16,
+              backgroundColor: '#ffffff'
+            }}
+          />
+        </View>
+      )}
 
       {/* Budget */}
       <View style={{ marginBottom: 20 }}>
@@ -433,12 +485,12 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           color: '#004D40',
           marginBottom: 8
         }}>
-          Monthly Budget ($)
+          Monthly Budget ($) {userType === "quick_access" ? "(Optional)" : ""}
         </Text>
         <TextInput
           value={budget}
           onChangeText={setBudget}
-          placeholder="Enter your budget"
+          placeholder="Monthly budget in $"
           keyboardType="numeric"
           style={{
             borderWidth: 2,
@@ -450,10 +502,26 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
             backgroundColor: '#ffffff'
           }}
         />
+        {userType === "quick_access" && (
+          <Text style={{
+            marginTop: 8,
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: '#44C76F',
+            backgroundColor: '#F2F5F1',
+            padding: 8,
+            borderWidth: 2,
+            borderColor: '#44C76F',
+            borderRadius: 4
+          }}>
+            💡 Budget is optional for Quick Access users. You can add it later if you upgrade to roommate matching.
+          </Text>
+        )}
       </View>
     </View>
   )
 
+  // Step 3: Preferences
   const renderStep3 = () => (
     <View style={{ flex: 1 }}>
       <Text style={{
@@ -502,7 +570,209 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
     </View>
   )
 
+  // Step 4: Room Photos (Providers only) or Ready (Others)
   const renderStep4 = () => (
+    userType === "provider" ? (
+      <View style={{ flex: 1 }}>
+        <Text style={{
+          fontSize: 24,
+          fontWeight: '900',
+          color: '#004D40',
+          textAlign: 'center',
+          marginBottom: 16,
+          transform: [{ skewX: '-1deg' }]
+        }}>
+          SHOWCASE YOUR SPACE
+        </Text>
+
+        <Text style={{
+          fontSize: 16,
+          fontWeight: 'bold',
+          color: '#004D40',
+          textAlign: 'center',
+          marginBottom: 8
+        }}>
+          Upload photos of your room and common areas
+        </Text>
+
+        <Text style={{
+          fontSize: 14,
+          color: '#004D40',
+          textAlign: 'center',
+          marginBottom: 24
+        }}>
+          At least 1 photo required • Up to 5 photos maximum
+        </Text>
+
+        {/* Room Photos Grid */}
+        <ScrollView style={{ flex: 1, marginBottom: 20 }}>
+          <View style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            gap: 8
+          }}>
+            {[...Array(5)].map((_, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={async () => {
+                  if (roomPhotos[index]) return // Already has photo
+                  try {
+                    const result = await pickImage({
+                      allowsEditing: true,
+                      quality: 0.8,
+                      maxWidth: 800,
+                      maxHeight: 800
+                    })
+                    if (result && !result.cancelled && result.uri) {
+                      const newPhotos = [...roomPhotos]
+                      newPhotos[index] = result.uri
+                      setRoomPhotos(newPhotos.filter(Boolean))
+                    }
+                  } catch (error) {
+                    Alert.alert('Error', 'Failed to select image')
+                  }
+                }}
+                style={{
+                  width: '30%',
+                  aspectRatio: 1,
+                  borderWidth: 3,
+                  borderColor: '#004D40',
+                  borderRadius: 8,
+                  borderStyle: roomPhotos[index] ? 'solid' : 'dashed',
+                  backgroundColor: roomPhotos[index] ? 'transparent' : '#f3f4f6',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 8
+                }}
+              >
+                {roomPhotos[index] ? (
+                  <Image
+                    source={{ uri: roomPhotos[index] }}
+                    style={{ width: '100%', height: '100%', borderRadius: 5 }}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={{ alignItems: 'center' }}>
+                    <Ionicons name="camera" size={24} color="#6b7280" />
+                    <Text style={{ fontSize: 10, color: '#6b7280', marginTop: 4 }}>Add Photo</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Tips */}
+          <View style={{
+            backgroundColor: '#dbeafe',
+            borderWidth: 4,
+            borderColor: '#60a5fa',
+            borderRadius: 8,
+            padding: 16,
+            marginTop: 16
+          }}>
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '900',
+              color: '#1e40af',
+              marginBottom: 8
+            }}>
+              💡 TIPS FOR GREAT ROOM PHOTOS
+            </Text>
+            <Text style={{ fontSize: 12, color: '#1e40af', lineHeight: 16 }}>
+              • Take photos during the day for best lighting{"\n"}
+              • Show the bedroom, common areas, kitchen, and bathroom{"\n"}
+              • Include any special amenities or features{"\n"}
+              • Make sure rooms are clean and tidy
+            </Text>
+          </View>
+        </ScrollView>
+
+        {error && (
+          <Text style={{
+            fontSize: 14,
+            color: '#ef4444',
+            textAlign: 'center',
+            marginBottom: 16,
+            backgroundColor: '#fee2e2',
+            padding: 8,
+            borderRadius: 4
+          }}>
+            {error}
+          </Text>
+        )}
+      </View>
+    ) : (
+      // Step 4 for non-providers: Ready to go
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{
+          fontSize: 24,
+          fontWeight: '900',
+          color: '#004D40',
+          textAlign: 'center',
+          marginBottom: 24,
+          transform: [{ skewX: '-1deg' }]
+        }}>
+          READY TO GO!
+        </Text>
+
+        <View style={{
+          width: 80,
+          height: 80,
+          backgroundColor: '#44C76F',
+          borderRadius: 40,
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderWidth: 4,
+          borderColor: '#004D40',
+          marginBottom: 24
+        }}>
+          <Ionicons name="checkmark" size={40} color="#004D40" />
+        </View>
+
+        <Text style={{
+          fontSize: 18,
+          fontWeight: 'bold',
+          color: '#004D40',
+          textAlign: 'center',
+          marginBottom: 32
+        }}>
+          Your profile is ready! Let's find your perfect roommate match.
+        </Text>
+
+        {error && (
+          <Text style={{
+            fontSize: 14,
+            color: '#ef4444',
+            textAlign: 'center',
+            marginBottom: 16,
+            backgroundColor: '#fee2e2',
+            padding: 8,
+            borderRadius: 4
+          }}>
+            {error}
+          </Text>
+        )}
+
+        {uploadError && (
+          <Text style={{
+            fontSize: 12,
+            color: '#f59e0b',
+            textAlign: 'center',
+            marginBottom: 16,
+            backgroundColor: '#fef3c7',
+            padding: 8,
+            borderRadius: 4
+          }}>
+            ⚠️ {uploadError}{"\n"}Profile will be saved without the uploaded image.
+          </Text>
+        )}
+      </View>
+    )
+  )
+
+  // Step 5: Final Summary (Providers only)
+  const renderStep5 = () => (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
       <Text style={{
         fontSize: 24,
@@ -534,9 +804,23 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
         fontWeight: 'bold',
         color: '#004D40',
         textAlign: 'center',
+        marginBottom: 16
+      }}>
+        Your profile is complete!
+      </Text>
+
+      <Text style={{
+        fontSize: 14,
+        color: '#004D40',
+        textAlign: 'center',
         marginBottom: 32
       }}>
-        Your profile is ready! Let's find your perfect roommate match.
+        {roomPhotos.length > 0
+          ? `${roomPhotos.length} room photos uploaded`
+          : roomPhotosSkipped
+            ? "Room photos skipped - you can add them later"
+            : ""
+        }
       </Text>
 
       {error && (
@@ -552,6 +836,20 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
           {error}
         </Text>
       )}
+
+      {uploadError && (
+        <Text style={{
+          fontSize: 12,
+          color: '#f59e0b',
+          textAlign: 'center',
+          marginBottom: 16,
+          backgroundColor: '#fef3c7',
+          padding: 8,
+          borderRadius: 4
+        }}>
+          ⚠️ {uploadError}{"\n"}Profile will be saved without the uploaded image.
+        </Text>
+      )}
     </View>
   )
 
@@ -564,11 +862,18 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
       case 3:
         return true // Preferences optional
       case 4:
+        if (userType === "provider") {
+          return roomPhotos.length > 0 || roomPhotosSkipped
+        }
+        return true
+      case 5:
         return true
       default:
         return false
     }
   }
+
+  const maxSteps = userType === "provider" ? 5 : 4
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F2F5F1' }}>
@@ -624,6 +929,7 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
             {step === 2 && renderStep2()}
             {step === 3 && renderStep3()}
             {step === 4 && renderStep4()}
+            {step === 5 && renderStep5()}
           </ScrollView>
 
           {/* Navigation Buttons */}
@@ -657,8 +963,42 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
               </TouchableOpacity>
             )}
 
+            {/* Skip Room Photos Button (Providers only) */}
+            {step === 4 && userType === "provider" && roomPhotos.length === 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setRoomPhotosSkipped(true)
+                  setStep(5)
+                }}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#f59e0b',
+                  paddingVertical: 12,
+                  paddingHorizontal: 24,
+                  borderWidth: 2,
+                  borderColor: '#f59e0b',
+                  borderRadius: 8
+                }}
+              >
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  color: '#ffffff',
+                  textAlign: 'center'
+                }}>
+                  Skip For Now
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
-              onPress={step === 4 ? handleSubmit : nextStep}
+              onPress={
+                step === maxSteps
+                  ? handleSubmit
+                  : step === 4 && userType === "provider"
+                    ? () => setStep(5)
+                    : nextStep
+              }
               disabled={!canContinue() || loading}
               style={{
                 flex: step === 1 ? 1 : 2,
@@ -680,7 +1020,12 @@ export default function ProfileSetup({ onComplete }: ProfileSetupProps) {
                   color: '#F2F5F1',
                   textAlign: 'center'
                 }}>
-                  {step === 4 ? 'Complete Setup' : 'Continue'}
+                  {step === maxSteps
+                    ? 'Complete Setup'
+                    : step === 4 && userType === "provider"
+                      ? 'Continue to Summary'
+                      : 'Continue'
+                  }
                 </Text>
               )}
             </TouchableOpacity>
