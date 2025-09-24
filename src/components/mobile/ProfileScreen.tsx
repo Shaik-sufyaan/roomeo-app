@@ -1,5 +1,5 @@
-// components/mobile/ProfileScreen.tsx - Mobile-native profile screen
-import React, { useState } from 'react';
+// components/mobile/ProfileScreen.tsx - Mobile-native profile screen with service integration
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,12 @@ import {
   Switch,
 } from 'react-native';
 import type { User } from '../../types/user';
+import { useAuth } from '../../hooks/useAuth';
+import { getMutualMatches } from '../../services/matches';
+import { getUserChats } from '../../services/chat';
+import { getCompleteProfile } from '../../services/profile';
+import { updateUserProfile } from '../../services/auth';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface ProfileScreenProps {
   user: User;
@@ -28,8 +34,60 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onLogout,
   onEditProfile,
 }) => {
+  const { user: authUser } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [profileVisible, setProfileVisible] = useState(user.profileVisible ?? true);
+  const [profileStats, setProfileStats] = useState({
+    profileViews: 0,
+    matches: 0,
+    chats: 0,
+  });
+  const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(false);
+
+  // Load real profile statistics
+  const loadProfileStats = async () => {
+    if (!authUser?.id) return;
+
+    setLoading(true);
+    try {
+      console.log('🔄 Loading profile statistics for:', authUser.id);
+
+      // Get match count
+      const matchesResult = await getMutualMatches(authUser.id);
+      const matchCount = matchesResult.success ? matchesResult.matches?.length || 0 : 0;
+
+      // Get chat count
+      const chatsResult = await getUserChats(authUser.id);
+      const chatCount = chatsResult.length;
+
+      // Get profile completion data (includes view info)
+      const profileResult = await getCompleteProfile(authUser.id);
+      const profileViews = profileResult.completionStatus?.completionPercentage || 0;
+
+      setProfileStats({
+        profileViews,
+        matches: matchCount,
+        chats: chatCount,
+      });
+
+      console.log('✅ Profile stats loaded:', { profileViews, matches: matchCount, chats: chatCount });
+    } catch (error) {
+      console.error('❌ Error loading profile stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProfileStats();
+  }, [authUser?.id]);
+
+  const profileStatsArray = [
+    { label: 'Profile Completion', value: `${profileStats.profileViews}%` },
+    { label: 'Matches', value: profileStats.matches.toString() },
+    { label: 'Chats', value: profileStats.chats.toString() },
+  ];
 
   const handleEditProfile = () => {
     if (onEditProfile) {
@@ -47,11 +105,40 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     Alert.alert('Upgrade', 'Upgrade functionality will be implemented soon!');
   };
 
-  const profileStats = [
-    { label: 'Profile Views', value: '47' },
-    { label: 'Matches', value: '12' },
-    { label: 'Chats', value: '8' },
-  ];
+  // Handle profile visibility toggle with real database update
+  const handleToggleProfileVisible = async (newValue: boolean) => {
+    if (!authUser?.id) {
+      Alert.alert('Error', 'User not authenticated');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      console.log('🔄 Updating profile visibility:', newValue);
+
+      const updateResult = await updateUserProfile(authUser.id, {
+        profileVisible: newValue
+      });
+
+      if (updateResult) {
+        setProfileVisible(newValue);
+        console.log('✅ Profile visibility updated');
+      } else {
+        Alert.alert('Error', 'Failed to update profile visibility');
+      }
+    } catch (error) {
+      console.error('❌ Error updating profile visibility:', error);
+      Alert.alert('Error', 'Failed to update profile visibility');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Handle refresh with real data reload
+  const handleRefresh = async () => {
+    await loadProfileStats();
+    onRefresh();
+  };
 
   const menuItems = [
     {
@@ -85,7 +172,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     <ScrollView
       style={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl refreshing={refreshing || loading} onRefresh={handleRefresh} />
       }
       showsVerticalScrollIndicator={false}
     >
@@ -115,12 +202,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       {/* Profile Stats */}
       <View style={styles.statsContainer}>
-        {profileStats.map((stat, index) => (
-          <View key={index} style={styles.statItem}>
-            <Text style={styles.statValue}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
+        {loading ? (
+          <View style={styles.statsLoading}>
+            <LoadingSpinner />
+            <Text style={styles.statsLoadingText}>Loading stats...</Text>
           </View>
-        ))}
+        ) : (
+          profileStatsArray.map((stat, index) => (
+            <View key={index} style={styles.statItem}>
+              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+            </View>
+          ))
+        )}
       </View>
 
       {/* Profile Info */}
@@ -161,9 +255,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
           <Switch
             value={profileVisible}
-            onValueChange={setProfileVisible}
+            onValueChange={handleToggleProfileVisible}
             trackColor={{ false: '#E5E7EB', true: '#44C76F' }}
             thumbColor={profileVisible ? '#004D40' : '#9CA3AF'}
+            disabled={updating}
           />
         </View>
 
@@ -294,6 +389,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#6B7280',
+  },
+  statsLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  statsLoadingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 8,
   },
   infoContainer: {
     backgroundColor: 'white',

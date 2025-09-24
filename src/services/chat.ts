@@ -2,6 +2,9 @@
 import { supabase } from './supabase'
 import type { ChatMessage, Chat } from '../types/chat'
 
+// Re-export types for easier importing
+export type { Chat, ChatMessage } from '../types/chat'
+
 /**
  * Get all chats for a user
  */

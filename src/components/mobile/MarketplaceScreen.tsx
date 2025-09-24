@@ -511,12 +511,25 @@ const AddListingForm: React.FC<{
 
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('🔄 Creating new listing:', formData);
+
+      const listingData = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        price: Number(formData.price),
+        location: formData.location.trim(),
+        images: [], // Add image handling later
+        created_by: user.id,
+      };
+
+      await createListing(listingData);
+      console.log('✅ Listing created successfully');
+
       Alert.alert('Success', 'Your listing has been created!', [
         { text: 'OK', onPress: onSuccess }
       ]);
     } catch (error) {
+      console.error('❌ Error creating listing:', error);
       Alert.alert('Error', 'Failed to create listing. Please try again.');
     } finally {
       setLoading(false);

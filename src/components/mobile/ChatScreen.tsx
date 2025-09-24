@@ -44,7 +44,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const {
     chats,
     loading: chatLoading,
-    loadUserChats,
+    refreshChats,
     createOrGetChatWith
   } = useChat(user)
 
@@ -66,7 +66,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       try {
         console.log('🔄 Creating/getting chat with marketplace seller...')
-        const chatId = await createOrGetChatWith(sellerId, chatTarget.listingId)
+        const chatId = await createOrGetChatWith(sellerId)
 
         if (chatId) {
           console.log('✅ Marketplace chat initialized:', chatId)
@@ -84,7 +84,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           )
 
           // Refresh chats to show the new chat
-          await loadUserChats()
+          await refreshChats()
         } else {
           console.error('❌ Failed to create marketplace chat')
           setError('Failed to create chat with seller')
@@ -98,20 +98,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
 
     initializeMarketplaceChat()
-  }, [chatTarget, user?.id, createOrGetChatWith, loadUserChats, onChatCreated])
+  }, [chatTarget, user?.id, createOrGetChatWith, refreshChats, onChatCreated])
 
   // Load chats when user changes or refreshTrigger updates
   useEffect(() => {
     if (user?.id) {
       console.log('🔄 ChatScreen refreshing due to trigger change:', refreshTrigger)
-      loadUserChats()
+      refreshChats()
     }
-  }, [user?.id, loadUserChats, refreshTrigger])
+  }, [user?.id, refreshChats, refreshTrigger])
 
   // Handle refresh
   const handleRefresh = async () => {
     setError(null)
-    await loadUserChats()
+    await refreshChats()
     onRefresh() // Call parent refresh if needed
   }
 

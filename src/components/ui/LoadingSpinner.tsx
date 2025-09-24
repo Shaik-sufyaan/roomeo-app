@@ -9,7 +9,7 @@ import {
 
 interface LoadingSpinnerProps {
   message?: string;
-  size?: 'small' | 'large';
+  size?: 'small' | 'large' | number;
 }
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
